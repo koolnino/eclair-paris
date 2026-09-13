@@ -18,7 +18,10 @@
       <div class="eyebrow">PARIS · ÉCLAIRS AU CHOCOLAT</div>
       <h1>Éclair Paris</h1>
     </div>
-    <button id="locateBtn" class="icon-btn" aria-label="Me localiser">⌖</button>
+    <div class="top-actions">
+      <button id="authBtn" class="pill-btn">Connexion</button>
+      <button id="locateBtn" class="icon-btn" aria-label="Me localiser">⌖</button>
+    </div>
   </header>
 
   <nav class="tabs" aria-label="Navigation">
@@ -31,10 +34,8 @@
     <section id="mapView" class="view active">
       <div class="filters">
         <input id="searchInput" type="search" placeholder="Nom, adresse, arrondissement…" autocomplete="off" />
-        <select id="arrFilter" aria-label="Arrondissement">
-          <option value="">Tout Paris</option>
-        </select>
-        <select id="statusFilter" aria-label="Disponibilité">
+        <select id="arrFilter"><option value="">Tout Paris</option></select>
+        <select id="statusFilter">
           <option value="">Tous</option>
           <option value="verified">Éclair vérifié</option>
           <option value="unknown">À vérifier</option>
@@ -54,15 +55,45 @@
 
     <section id="discoverView" class="view">
       <div class="section-head">
-        <div><div class="eyebrow">SÉLECTION</div><h2>Éclairs vérifiés</h2></div>
+        <div><div class="eyebrow">MA LISTE</div><h2>À tester</h2></div>
       </div>
-      <div id="verifiedList" class="cards"></div>
+      <div id="favoriteList" class="cards"></div>
     </section>
   </main>
 
   <dialog id="detailDialog">
     <button id="closeDialog" class="close">×</button>
     <div id="detailContent"></div>
+  </dialog>
+
+  <dialog id="authDialog">
+    <button id="closeAuth" class="close">×</button>
+    <div class="eyebrow">MON COMPTE</div>
+    <h2>Connexion</h2>
+    <p class="meta">Connecte-toi pour voter et créer ta liste d'éclairs à tester.</p>
+    <form id="authForm" class="form-grid">
+      <label>Email<input id="authEmail" type="email" required autocomplete="email"></label>
+      <label>Mot de passe<input id="authPassword" type="password" required minlength="6" autocomplete="current-password"></label>
+      <div class="actions">
+        <button type="submit" class="primary">Se connecter</button>
+        <button type="button" id="signupBtn" class="secondary">Créer un compte</button>
+      </div>
+      <div id="authMessage" class="meta"></div>
+    </form>
+  </dialog>
+
+  <dialog id="voteDialog">
+    <button id="closeVote" class="close">×</button>
+    <div class="eyebrow">DÉGUSTATION</div>
+    <h2 id="voteTitle">Noter l'éclair</h2>
+    <form id="voteForm" class="form-grid">
+      <div id="voteSliders"></div>
+      <label>Commentaire<textarea id="voteComment" rows="3" placeholder="Texture, intensité du chocolat, équilibre…"></textarea></label>
+      <label class="check"><input id="verifiedTasting" type="checkbox"> Je suis actuellement près de la boutique</label>
+      <div class="score-preview">Note calculée : <strong id="scorePreview">0/100</strong></div>
+      <button type="submit" class="primary">Enregistrer mon vote</button>
+      <div id="voteMessage" class="meta"></div>
+    </form>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
