@@ -10,13 +10,12 @@
   <title>Éclair Paris</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=20260913-2345" />
 </head>
 <body>
   <header class="topbar">
     <div>
-      <div class="eyebrow">PARIS · ÉCLAIRS AU CHOCOLAT</div>
-      <h1>Éclair Paris</h1>
+      <div class="brand-crown" aria-hidden="true">♛</div><h1>Éclair Paris</h1><div class="brand-tagline">LES MEILLEURS ÉCLAIRS DE LA CAPITALE</div>
     </div>
     <div class="top-actions">
       <button id="authBtn" class="pill-btn">Connexion</button>
@@ -25,15 +24,15 @@
   </header>
 
   <nav class="tabs" aria-label="Navigation">
-    <button class="tab active" data-view="map">Carte</button>
-    <button class="tab" data-view="ranking">Classement</button>
-    <button class="tab" data-view="discover">À tester</button>
+    <button class="tab active" data-view="map"><span class="tab-icon">⌖</span><span>Carte</span></button>
+    <button class="tab" data-view="ranking"><span class="tab-icon">♕</span><span>Classement</span></button>
+    <button class="tab" data-view="discover"><span class="tab-icon">＋</span><span>À tester</span></button>
   </nav>
 
   <main>
     <section id="mapView" class="view active">
       <div class="filters">
-        <input id="searchInput" type="search" placeholder="Nom, adresse, arrondissement…" autocomplete="off" />
+        <input id="searchInput" type="search" placeholder="Rechercher une pâtisserie, une adresse, un quartier…" autocomplete="off" />
         <select id="arrFilter"><option value="">Tout Paris</option></select>
         <select id="statusFilter">
           <option value="">Tous</option>
