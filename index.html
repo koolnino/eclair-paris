@@ -38,7 +38,7 @@
         <select id="statusFilter">
           <option value="">Tous</option>
           <option value="verified">Éclair vérifié</option>
-          <option value="unknown">Établissements recensés</option>
+          <option value="unknown">À vérifier</option>
         </select>
       </div>
       <div id="map"></div>
@@ -79,20 +79,6 @@
         <button type="button" id="signupBtn" class="secondary">Créer un compte</button>
       </div>
       <div id="authMessage" class="meta"></div>
-    </form>
-  </dialog>
-
-  <dialog id="reportDialog">
-    <button id="closeReport" class="close">×</button>
-    <div class="eyebrow">SIGNALEMENT</div>
-    <h2 id="reportTitle">Signaler un éclair au chocolat</h2>
-    <p class="meta">Ton signalement sera conservé comme information à vérifier avant d'être affiché comme « vérifié ».</p>
-    <form id="reportForm" class="form-grid">
-      <label>Prix constaté (€)<input id="reportPrice" type="number" min="0" step="0.10" placeholder="ex. 4,50"></label>
-      <label>Source éventuelle<input id="reportSource" type="url" placeholder="Site officiel, page produit…"></label>
-      <label>Commentaire<textarea id="reportComment" rows="3" placeholder="Disponibilité, date, détail utile…"></textarea></label>
-      <button type="submit" class="primary">Envoyer le signalement</button>
-      <div id="reportMessage" class="meta"></div>
     </form>
   </dialog>
 
