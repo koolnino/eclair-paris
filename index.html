@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#2b1b17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Éclair Paris" />
+  <title>Éclair Paris</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">PARIS · ÉCLAIRS AU CHOCOLAT</div>
+      <h1>Éclair Paris</h1>
+    </div>
+    <button id="locateBtn" class="icon-btn" aria-label="Me localiser">⌖</button>
+  </header>
+
+  <nav class="tabs" aria-label="Navigation">
+    <button class="tab active" data-view="map">Carte</button>
+    <button class="tab" data-view="ranking">Classement</button>
+    <button class="tab" data-view="discover">À tester</button>
+  </nav>
+
+  <main>
+    <section id="mapView" class="view active">
+      <div class="filters">
+        <input id="searchInput" type="search" placeholder="Nom, adresse, arrondissement…" autocomplete="off" />
+        <select id="arrFilter" aria-label="Arrondissement">
+          <option value="">Tout Paris</option>
+        </select>
+        <select id="statusFilter" aria-label="Disponibilité">
+          <option value="">Tous</option>
+          <option value="verified">Éclair vérifié</option>
+          <option value="unknown">À vérifier</option>
+        </select>
+      </div>
+      <div id="map"></div>
+      <div id="mapCount" class="map-count"></div>
+    </section>
+
+    <section id="rankingView" class="view">
+      <div class="section-head">
+        <div><div class="eyebrow">COMMUNAUTÉ</div><h2>Classement</h2></div>
+        <select id="rankingArr"><option value="">Tout Paris</option></select>
+      </div>
+      <div id="rankingList" class="cards"></div>
+    </section>
+
+    <section id="discoverView" class="view">
+      <div class="section-head">
+        <div><div class="eyebrow">SÉLECTION</div><h2>Éclairs vérifiés</h2></div>
+      </div>
+      <div id="verifiedList" class="cards"></div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog">
+    <button id="closeDialog" class="close">×</button>
+    <div id="detailContent"></div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="./app.js"></script>
+</body>
+</html>
