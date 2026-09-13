@@ -200,7 +200,8 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelect
 document.getElementById("rankingArr").addEventListener("input",renderRanking);
 document.getElementById("closeDialog").onclick=()=>document.getElementById("detailDialog").close();
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
-document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();\ndocument.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
+document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();
+document.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
 document.getElementById("authBtn").onclick=async()=>{if(currentUser){if(confirm("Se déconnecter ?"))await sb.auth.signOut()}else openAuth()};
 document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>{
   const latlng=L.latLng(p.coords.latitude,p.coords.longitude);
@@ -210,6 +211,7 @@ document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurre
 });
 document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;const {error}=await sb.auth.signInWithPassword({email,password});document.getElementById("authMessage").textContent=error?error.message:"Connecté.";if(!error)setTimeout(()=>document.getElementById("authDialog").close(),400)};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
-document.getElementById("voteForm").onsubmit=saveVote;\ndocument.getElementById("reportForm").onsubmit=saveReport;
+document.getElementById("voteForm").onsubmit=saveVote;
+document.getElementById("reportForm").onsubmit=saveReport;
 
 setupArrondissements();initMap();initAuth();loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger les données.</div>'});
