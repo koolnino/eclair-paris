@@ -181,7 +181,7 @@ dialog::backdrop{background:rgba(45,26,18,.54);backdrop-filter:blur(3px)}
 .map-pin-dot{border-radius:50%;box-shadow:0 2px 7px rgba(44,25,16,.28)}
 .map-pin-dot.verified{box-shadow:0 0 0 3px rgba(79,141,71,.14),0 3px 9px rgba(44,25,16,.25)}
 .map-pin-dot.reported{box-shadow:0 0 0 3px rgba(217,144,47,.14),0 3px 9px rgba(44,25,16,.25)}
-.map-pin-dot.catalog{opacity:.78}
+.map-pin-dot.catalog{opacity:.98;box-shadow:0 3px 9px rgba(44,25,16,.32)}
 .catalog-cluster{
   border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -244,3 +244,4 @@ dialog::backdrop{background:rgba(45,26,18,.54);backdrop-filter:blur(3px)}
   .admin-actions{display:grid;grid-template-columns:1fr 1fr}
   .admin-actions .admin-approve{grid-column:1/-1}
 }
+.legend .dot.catalog{background:#7A665C}
