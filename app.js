@@ -429,6 +429,24 @@ document.getElementById("reportForm").onsubmit=saveReport;
 document.getElementById("refreshAdminBtn").onclick=refreshAdmin;
 
 
+
+function startSplashScreen(){
+  const splash=document.getElementById("appSplash");
+  if(!splash)return;
+  const shownAt=performance.now();
+  const hide=()=>{
+    const elapsed=performance.now()-shownAt;
+    const delay=Math.max(0,2200-elapsed);
+    setTimeout(()=>{
+      splash.classList.add("is-hiding");
+      setTimeout(()=>splash.remove(),500);
+    },delay);
+  };
+  if(document.readyState==="complete")hide();
+  else window.addEventListener("load",hide,{once:true});
+  setTimeout(hide,3200);
+}
+
 async function setupAutoUpdates(){
   if(!("serviceWorker" in navigator))return;
   try{
@@ -448,6 +466,7 @@ async function setupAutoUpdates(){
   }
 }
 
+startSplashScreen();
 setupArrondissements();
 setupAutoUpdates();
 if(window.L){
