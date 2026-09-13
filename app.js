@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
+let bakeries=[], catalog=[], rankings=[], reportSummary=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -21,14 +21,31 @@ function setupArrondissements(){
 async function loadData(){
   const eclairPromise=sb?sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true):Promise.resolve({data:[],error:null});
   const rankingPromise=sb?sb.from("eclair_rankings").select("*"):Promise.resolve({data:[]});
-  const [{data:b,error:be},{data:r},catalogData] = await Promise.all([
+  const reportPromise=sb?sb.from("eclair_report_summary").select("*"):Promise.resolve({data:[]});
+  const [{data:b,error:be},{data:r},{data:rs},catalogData] = await Promise.all([
     eclairPromise,
     rankingPromise,
+    reportPromise,
     fetch("./data/paris_shops.json",{cache:"no-store"}).then(res=>res.ok?res.json():null).catch(()=>null)
   ]);
   if(be) console.warn("Supabase indisponible, affichage du catalogue public uniquement.",be);
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
-  catalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
+  reportSummary=rs||[];
+  const reportByCatalog=new Map(reportSummary.map(x=>[x.catalog_id,x]));
+  catalog=(catalogData?.establishments||[]).map(x=>{
+    const report=reportByCatalog.get(x.catalog_id);
+    return {
+      ...x,
+      eclair_id:null,
+      price_eur:null,
+      description:null,
+      verified_at:null,
+      report_count:Number(report?.report_count||0),
+      avg_reported_price:report?.avg_reported_price==null?null:Number(report.avg_reported_price),
+      last_report_at:report?.last_report_at||null,
+      availability_status:report?"reported":"catalog"
+    };
+  });
   rankings=r||[];
   await loadFavorites();
   renderAll();
@@ -80,10 +97,12 @@ function renderMap(){
   const list=filtered();
   for(const x of list){
     if(!Number.isFinite(Number(x.latitude))||!Number.isFinite(Number(x.longitude)))continue;
-    const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id);
-    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
+    const verified=x.availability_status==="verified", reported=x.availability_status==="reported", unavailable=x.availability_status==="unavailable", fav=isFavorite(x.eclair_id);
+    const markerColor=verified?"#2b1b17":reported?"#d9902f":unavailable?"#b9aaa2":"#a68d82";
+    const statusLabel=verified?"✓ Éclair vérifié":reported?`Signalé par la communauté · ${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}`:unavailable?"Indisponible":"Adresse recensée";
+    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${markerColor};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
     const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
-    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"À vérifier"}`);
+    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${statusLabel}`);
     m.on("click",()=>showDetail(x));markers.push(m);
   }
   document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
@@ -118,12 +137,15 @@ async function toggleFavorite(x){
 function showDetail(x){
   currentEclair=x;
   const verified=x.availability_status==="verified";
+  const reported=x.availability_status==="reported";
+  const unavailable=x.availability_status==="unavailable";
   const sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id;
+  const statusEyebrow=verified?"ÉCLAIR VÉRIFIÉ":reported?"SIGNALÉ PAR LA COMMUNAUTÉ":unavailable?"INDISPONIBLE":"ÉTABLISSEMENT RECENSÉ";
   document.getElementById("detailContent").innerHTML=`
-    <div class="eyebrow">${verified?"ÉCLAIR VÉRIFIÉ":"ÉTABLISSEMENT RECENSÉ"}</div>
+    <div class="eyebrow">${statusEyebrow}</div>
     <h2>${esc(x.name)}</h2>
     <p>${esc(x.address)}</p>
-    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:'<div class="source-note">Cette adresse est recensée. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
+    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:reported?`<div class="source-note"><strong>${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}</strong> · information encore à vérifier${x.avg_reported_price!=null?` · prix moyen signalé : ${price(x.avg_reported_price)}`:""}.</div>`:unavailable?'<div class="source-note">Cet éclair est signalé comme indisponible.</div>':'<div class="source-note">Cette adresse est recensée. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
     ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
     ${x.description?`<p>${esc(x.description)}</p>`:""}
     <div class="actions">
