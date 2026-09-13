@@ -1,6 +1,6 @@
 const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
 const criteria=[
@@ -19,12 +19,14 @@ function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
 }
 async function loadData(){
+  const eclairPromise=sb?sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true):Promise.resolve({data:[],error:null});
+  const rankingPromise=sb?sb.from("eclair_rankings").select("*"):Promise.resolve({data:[]});
   const [{data:b,error:be},{data:r},catalogData] = await Promise.all([
-    sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true),
-    sb.from("eclair_rankings").select("*"),
+    eclairPromise,
+    rankingPromise,
     fetch("./data/paris_shops.json",{cache:"no-store"}).then(res=>res.ok?res.json():null).catch(()=>null)
   ]);
-  if(be) throw be;
+  if(be) console.warn("Supabase indisponible, affichage du catalogue public uniquement.",be);
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
   catalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
   rankings=r||[];
@@ -32,7 +34,7 @@ async function loadData(){
   renderAll();
 }
 async function loadFavorites(){
-  if(!currentUser){favorites=[];return;}
+  if(!currentUser||!sb){favorites=[];return;}
   const {data}=await sb.from("favorites").select("eclair_id,status").eq("user_id",currentUser.id);
   favorites=data||[];
 }
@@ -138,6 +140,7 @@ async function saveVote(e){
 }
 
 async function initAuth(){
+  if(!sb){currentUser=null;updateAuthButton();renderFavorites();return;}
   const {data:{session}}=await sb.auth.getSession();currentUser=session?.user||null;updateAuthButton();await loadFavorites();renderFavorites();
   sb.auth.onAuthStateChange(async(_,session)=>{currentUser=session?.user||null;await loadFavorites();renderAll()});
 }
@@ -159,4 +162,11 @@ document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const 
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
 document.getElementById("voteForm").onsubmit=saveVote;
 
-setupArrondissements();initMap();initAuth();loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger les données.</div>'});
+setupArrondissements();
+if(window.L){
+  initMap();
+  loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger certaines données.</div>'});
+  initAuth();
+}else{
+  document.getElementById("map").innerHTML='<div class="empty">La bibliothèque cartographique n’a pas pu être chargée. Recharge la page.</div>';
+}
