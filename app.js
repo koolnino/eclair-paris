@@ -67,7 +67,7 @@ function initMap(){
   const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
   map=L.map("map",{zoomControl:false,maxBounds:parisBounds,maxBoundsViscosity:1.0,minZoom:12}).setView([48.8566,2.3522],12);
   L.control.zoom({position:"bottomright"}).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"&copy; OpenStreetMap contributors",maxZoom:19}).addTo(map);
   map.on("zoomend moveend",()=>{if(catalog.length||bakeries.length)renderMap()});
   loadParisBoundary();
 }
