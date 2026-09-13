@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
+let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[], markerLayer;
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -14,6 +14,9 @@ const criteria=[
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 const arrText=v=>v?String(v).replace(/\D/g,""):"";
 const price=v=>v==null?"Prix à confirmer":new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(v);
+const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const distanceMeters=(a,b)=>{const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(Number(b.latitude)-Number(a.latitude)),dLon=toRad(Number(b.longitude)-Number(a.longitude)),q=Math.sin(dLat/2)**2+Math.cos(toRad(Number(a.latitude)))*Math.cos(toRad(Number(b.latitude)))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(q));};
+const samePlace=(a,b)=>{const na=norm(a.name),nb=norm(b.name);if(!na||!nb)return false;const nameMatch=na===nb||na.includes(nb)||nb.includes(na);return nameMatch&&distanceMeters(a,b)<120;};
 
 function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
@@ -26,7 +29,10 @@ async function loadData(){
   ]);
   if(be) throw be;
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
-  catalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
+  const rawCatalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
+  catalog=rawCatalog.filter(c=>!bakeries.some(v=>samePlace(c,v)));
+  const seen=new Set();
+  catalog=catalog.filter(x=>{const key=norm(x.name)+"|"+Math.round(Number(x.latitude)*10000)+"|"+Math.round(Number(x.longitude)*10000);if(seen.has(key))return false;seen.add(key);return true;});
   rankings=r||[];
   await loadFavorites();
   renderAll();
@@ -46,21 +52,25 @@ function filtered(){
 }
 function initMap(){
   map=L.map("map",{zoomControl:false}).setView([48.8566,2.3522],12);
+  markerLayer=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true,maxClusterRadius:45});
+  map.addLayer(markerLayer);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
 }
 function renderMap(){
-  markers.forEach(m=>m.remove());markers=[];
+  markerLayer.clearLayers();markers=[];
   const list=filtered();
   for(const x of list){
     if(!Number.isFinite(Number(x.latitude))||!Number.isFinite(Number(x.longitude)))continue;
     const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id);
     const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
-    const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
-    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"À vérifier"}`);
-    if(x.eclair_id) m.on("click",()=>showDetail(x));markers.push(m);
+    const m=L.marker([x.latitude,x.longitude],{icon});
+    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"Établissement recensé"}`);
+    m.on("click",()=>showDetail(x));markerLayer.addLayer(m);markers.push(m);
   }
-  document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
+  const verifiedCount=list.filter(x=>x.availability_status==="verified").length;
+  document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""} · ${verifiedCount} éclair${verifiedCount>1?"s":""} vérifié${verifiedCount>1?"s":""}`;
+  if(!document.getElementById("mapLegend")){const el=document.createElement("div");el.id="mapLegend";el.className="legend";el.innerHTML='<div><span class="dot verified"></span>Éclair vérifié</div><div><span class="dot catalog"></span>Établissement recensé</div>';document.getElementById("mapView").appendChild(el);}
 }
 function card(x,withScore=false){
   const sc=scoreOf(x),vc=votesOf(x),verified=x.availability_status==="verified";
@@ -90,21 +100,19 @@ async function toggleFavorite(x){
   await loadFavorites();renderAll();showDetail(x);
 }
 function showDetail(x){
-  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id);
+  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id;
   document.getElementById("detailContent").innerHTML=`
-    <div class="eyebrow">${verified?"ÉCLAIR VÉRIFIÉ":"INFORMATION À VÉRIFIER"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
-    <p><strong>${price(x.price_eur)}</strong></p>
-    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:"<p>Aucun vote pour le moment.</p>"}
+    <div class="eyebrow">${verified?"ÉCLAIR AU CHOCOLAT VÉRIFIÉ":"ÉTABLISSEMENT RECENSÉ"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
+    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:'<div class="source-note">Cette adresse est issue du catalogue OpenStreetMap. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
+    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
     ${x.description?`<p>${esc(x.description)}</p>`:""}
     <div class="actions">
-      <button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button>
-      <button id="rateBtn" class="primary">Noter cet éclair</button>
+      ${canRate?`<button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button><button id="rateBtn" class="primary">Noter cet éclair</button>`:""}
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">Itinéraire</a>
       ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
     </div>`;
   document.getElementById("detailDialog").showModal();
-  document.getElementById("favBtn").onclick=()=>toggleFavorite(x);
-  document.getElementById("rateBtn").onclick=()=>openVote(x);
+  if(canRate){document.getElementById("favBtn").onclick=()=>toggleFavorite(x);document.getElementById("rateBtn").onclick=()=>openVote(x);}
 }
 function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
 function updateAuthButton(){document.getElementById("authBtn").textContent=currentUser?currentUser.email.split("@")[0]:"Connexion"}
