@@ -38,10 +38,17 @@
         <select id="statusFilter">
           <option value="">Tous</option>
           <option value="verified">Éclair vérifié</option>
-          <option value="unknown">À vérifier</option>
+          <option value="reported">Signalé par la communauté</option>
+          <option value="catalog">Adresse recensée</option>
+          <option value="unavailable">Indisponible</option>
         </select>
       </div>
       <div id="map"></div>
+      <div class="legend" aria-label="Légende de la carte">
+        <div><span class="dot verified"></span> Éclair vérifié</div>
+        <div><span class="dot reported"></span> Signalé par la communauté</div>
+        <div><span class="dot catalog"></span> Adresse recensée</div>
+      </div>
       <div id="mapCount" class="map-count"></div>
     </section>
 
@@ -114,6 +121,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20260913-2328"></script>
 </body>
 </html>
