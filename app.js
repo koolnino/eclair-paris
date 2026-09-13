@@ -68,6 +68,7 @@ function initMap(){
   map=L.map("map",{zoomControl:false,maxBounds:parisBounds,maxBoundsViscosity:1.0,minZoom:12}).setView([48.8566,2.3522],12);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
+  map.on("zoomend moveend",()=>{if(catalog.length||bakeries.length)renderMap()});
   loadParisBoundary();
 }
 async function loadParisBoundary(){
@@ -92,21 +93,74 @@ async function loadParisBoundary(){
     }
   }catch(err){console.warn("Contour de Paris indisponible",err);}
 }
+function addSingleMarker(x){
+  const verified=x.availability_status==="verified";
+  const reported=x.availability_status==="reported";
+  const unavailable=x.availability_status==="unavailable";
+  const fav=isFavorite(x.eclair_id);
+  const markerColor=verified?"#4f8d47":reported?"#d9902f":unavailable?"#b9aaa2":"#9b8f88";
+  const size=verified||reported?20:15;
+  const border=verified||reported?3:2;
+  const statusLabel=verified?"✓ Éclair vérifié":reported?`Signalé par la communauté · ${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}`:unavailable?"Indisponible":"Adresse recensée";
+  const icon=L.divIcon({
+    className:"",
+    html:`<div class="map-pin-dot ${verified?"verified":reported?"reported":"catalog"}" style="width:${size}px;height:${size}px;background:${markerColor};border:${border}px solid ${fav?"#e5b642":"white"}"></div>`,
+    iconSize:[size,size],
+    iconAnchor:[size/2,size/2]
+  });
+  const m=L.marker([x.latitude,x.longitude],{icon,zIndexOffset:verified?800:reported?600:0}).addTo(map);
+  m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${statusLabel}`);
+  m.on("click",()=>showDetail(x));
+  markers.push(m);
+}
+
+function addClusterMarker(group){
+  const count=group.items.length;
+  const avgLat=group.items.reduce((s,x)=>s+Number(x.latitude),0)/count;
+  const avgLng=group.items.reduce((s,x)=>s+Number(x.longitude),0)/count;
+  const size=count>=100?50:count>=50?46:count>=20?42:count>=10?38:34;
+  const icon=L.divIcon({
+    className:"",
+    html:`<div class="catalog-cluster" style="width:${size}px;height:${size}px">${count}</div>`,
+    iconSize:[size,size],
+    iconAnchor:[size/2,size/2]
+  });
+  const m=L.marker([avgLat,avgLng],{icon}).addTo(map);
+  m.bindTooltip(`${count} adresses recensées`,{direction:"top",offset:[0,-8]});
+  m.on("click",()=>{
+    if(map.getZoom()<16) map.setView([avgLat,avgLng],Math.min(map.getZoom()+2,16));
+  });
+  markers.push(m);
+}
+
 function renderMap(){
   markers.forEach(m=>m.remove());markers=[];
-  const list=filtered();
-  for(const x of list){
-    if(!Number.isFinite(Number(x.latitude))||!Number.isFinite(Number(x.longitude)))continue;
-    const verified=x.availability_status==="verified", reported=x.availability_status==="reported", unavailable=x.availability_status==="unavailable", fav=isFavorite(x.eclair_id);
-    const markerColor=verified?"#2b1b17":reported?"#d9902f":unavailable?"#b9aaa2":"#a68d82";
-    const statusLabel=verified?"✓ Éclair vérifié":reported?`Signalé par la communauté · ${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}`:unavailable?"Indisponible":"Adresse recensée";
-    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${markerColor};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
-    const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
-    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${statusLabel}`);
-    m.on("click",()=>showDetail(x));markers.push(m);
+  const list=filtered().filter(x=>Number.isFinite(Number(x.latitude))&&Number.isFinite(Number(x.longitude)));
+  const zoom=map.getZoom();
+  const priority=list.filter(x=>x.availability_status==="verified"||x.availability_status==="reported"||x.availability_status==="unavailable");
+  const ordinary=list.filter(x=>!priority.includes(x));
+
+  priority.forEach(addSingleMarker);
+
+  if(zoom>=15){
+    ordinary.forEach(addSingleMarker);
+  }else{
+    const cellSize=zoom<=12?78:zoom===13?68:58;
+    const groups=new Map();
+    for(const x of ordinary){
+      const p=map.latLngToLayerPoint([x.latitude,x.longitude]);
+      const key=`${Math.floor(p.x/cellSize)}:${Math.floor(p.y/cellSize)}`;
+      if(!groups.has(key))groups.set(key,{items:[]});
+      groups.get(key).items.push(x);
+    }
+    for(const group of groups.values()){
+      if(group.items.length===1)addSingleMarker(group.items[0]);
+      else addClusterMarker(group);
+    }
   }
   document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
 }
+
 function card(x,withScore=false){
   const sc=scoreOf(x),vc=votesOf(x),verified=x.availability_status==="verified";
   return `<button class="card" data-id="${esc(x.eclair_id)}"><div class="row"><div><h3>${esc(x.name)}</h3><div class="meta">${esc(x.address)}</div></div>${withScore&&vc?`<div><div class="score">${sc.toFixed(1)}</div><div class="meta">${vc} vote${vc>1?"s":""}</div></div>`:""}</div><div class="row"><span class="badge ${verified?"":"unknown"}">${verified?"Éclair vérifié":"À vérifier"}</span><span class="price">${price(x.price_eur)}</span></div></button>`;
