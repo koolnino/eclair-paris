@@ -434,17 +434,20 @@ function startSplashScreen(){
   const splash=document.getElementById("appSplash");
   if(!splash)return;
   const shownAt=performance.now();
+  let hideScheduled=false;
   const hide=()=>{
+    if(hideScheduled)return;
+    hideScheduled=true;
     const elapsed=performance.now()-shownAt;
-    const delay=Math.max(0,2200-elapsed);
+    const delay=Math.max(0,3500-elapsed);
     setTimeout(()=>{
       splash.classList.add("is-hiding");
-      setTimeout(()=>splash.remove(),500);
+      setTimeout(()=>splash.remove(),600);
     },delay);
   };
   if(document.readyState==="complete")hide();
   else window.addEventListener("load",hide,{once:true});
-  setTimeout(hide,3200);
+  setTimeout(hide,5000);
 }
 
 async function setupAutoUpdates(){
