@@ -110,9 +110,43 @@ function showDetail(x){
       ${canRate?`<button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button><button id="rateBtn" class="primary">Noter cet éclair</button>`:""}
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">Itinéraire</a>
       ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
-    </div>`;
+    </div>
+    ${!canRate?`<div class="catalog-cta"><strong>Tu as vu un éclair au chocolat ici ?</strong><span class="meta">Aide à enrichir Éclair Paris sans transformer le signalement en donnée vérifiée.</span><div class="actions"><button id="reportBtn" class="primary">Signaler un éclair</button></div></div>`:""}`;
   document.getElementById("detailDialog").showModal();
   if(canRate){document.getElementById("favBtn").onclick=()=>toggleFavorite(x);document.getElementById("rateBtn").onclick=()=>openVote(x);}
+  else document.getElementById("reportBtn").onclick=()=>openReport(x);
+}
+function openReport(x){
+  if(!currentUser){document.getElementById("detailDialog").close();return openAuth();}
+  currentEclair=x;
+  document.getElementById("reportTitle").textContent="Signaler · "+x.name;
+  document.getElementById("reportPrice").value="";
+  document.getElementById("reportSource").value="";
+  document.getElementById("reportComment").value="";
+  document.getElementById("reportMessage").textContent="";
+  document.getElementById("detailDialog").close();
+  document.getElementById("reportDialog").showModal();
+}
+async function saveReport(e){
+  e.preventDefault();
+  if(!currentUser||!currentEclair?.catalog_id)return;
+  const raw=document.getElementById("reportPrice").value;
+  const payload={
+    user_id:currentUser.id,
+    catalog_id:currentEclair.catalog_id,
+    establishment_name:currentEclair.name,
+    address:currentEclair.address||null,
+    latitude:currentEclair.latitude||null,
+    longitude:currentEclair.longitude||null,
+    reported_price:raw===""?null:Number(raw),
+    source_url:document.getElementById("reportSource").value.trim()||null,
+    comment:document.getElementById("reportComment").value.trim()||null
+  };
+  const {error}=await sb.from("eclair_reports").insert(payload);
+  const msg=document.getElementById("reportMessage");
+  if(error){msg.textContent="Erreur : "+error.message;return;}
+  msg.textContent="Merci. Signalement enregistré comme information à vérifier.";
+  setTimeout(()=>document.getElementById("reportDialog").close(),800);
 }
 function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
 function updateAuthButton(){document.getElementById("authBtn").textContent=currentUser?currentUser.email.split("@")[0]:"Connexion"}
@@ -154,11 +188,11 @@ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelect
 document.getElementById("rankingArr").addEventListener("input",renderRanking);
 document.getElementById("closeDialog").onclick=()=>document.getElementById("detailDialog").close();
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
-document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();
+document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();\ndocument.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
 document.getElementById("authBtn").onclick=async()=>{if(currentUser){if(confirm("Se déconnecter ?"))await sb.auth.signOut()}else openAuth()};
 document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],15));
 document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;const {error}=await sb.auth.signInWithPassword({email,password});document.getElementById("authMessage").textContent=error?error.message:"Connecté.";if(!error)setTimeout(()=>document.getElementById("authDialog").close(),400)};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
-document.getElementById("voteForm").onsubmit=saveVote;
+document.getElementById("voteForm").onsubmit=saveVote;\ndocument.getElementById("reportForm").onsubmit=saveReport;
 
 setupArrondissements();initMap();initAuth();loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger les données.</div>'});
