@@ -10,7 +10,7 @@
   <title>Éclair Paris</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <link rel="stylesheet" href="./styles.css?v=20260913-2358" />
+  <link rel="stylesheet" href="./styles.css?v=20260914-0008" />
 </head>
 <body>
   <header class="topbar">
@@ -27,6 +27,7 @@
     <button class="tab active" data-view="map"><span class="tab-icon">⌖</span><span>Carte</span></button>
     <button class="tab" data-view="ranking"><span class="tab-icon">♕</span><span>Classement</span></button>
     <button class="tab" data-view="discover"><span class="tab-icon">＋</span><span>À tester</span></button>
+    <button id="adminTab" class="tab" data-view="admin" hidden><span class="tab-icon">⚙</span><span>Admin</span></button>
   </nav>
 
   <main>
@@ -72,6 +73,15 @@
         <div><div class="eyebrow">MA LISTE</div><h2>À tester</h2></div>
       </div>
       <div id="favoriteList" class="cards"></div>
+    </section>
+
+    <section id="adminView" class="view">
+      <div class="section-head">
+        <div><div class="eyebrow">ADMINISTRATION</div><h2>Signalements à traiter</h2></div>
+        <button id="refreshAdminBtn" class="secondary">Actualiser</button>
+      </div>
+      <div id="adminStats" class="admin-stats"></div>
+      <div id="adminReportList" class="cards"></div>
     </section>
   </main>
 
@@ -128,6 +138,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="./app.js?v=20260913-2359"></script>
+  <script src="./app.js?v=20260914-0008"></script>
 </body>
 </html>
