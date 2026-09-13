@@ -116,22 +116,68 @@ async function toggleFavorite(x){
   await loadFavorites();renderAll();showDetail(x);
 }
 function showDetail(x){
-  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id);
+  currentEclair=x;
+  const verified=x.availability_status==="verified";
+  const sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id;
   document.getElementById("detailContent").innerHTML=`
-    <div class="eyebrow">${verified?"ÉCLAIR VÉRIFIÉ":"INFORMATION À VÉRIFIER"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
-    <p><strong>${price(x.price_eur)}</strong></p>
-    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:"<p>Aucun vote pour le moment.</p>"}
+    <div class="eyebrow">${verified?"ÉCLAIR VÉRIFIÉ":"ÉTABLISSEMENT RECENSÉ"}</div>
+    <h2>${esc(x.name)}</h2>
+    <p>${esc(x.address)}</p>
+    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:'<div class="source-note">Cette adresse est recensée. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
+    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
     ${x.description?`<p>${esc(x.description)}</p>`:""}
     <div class="actions">
-      <button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button>
-      <button id="rateBtn" class="primary">Noter cet éclair</button>
+      ${canRate?`<button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button><button id="rateBtn" class="primary">Noter cet éclair</button>`:""}
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">Itinéraire</a>
-      ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
-    </div>`;
+      ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}
+      ${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
+    </div>
+    ${!canRate?'<div class="catalog-cta"><strong>Tu as vu un éclair au chocolat ici ?</strong><span class="meta">Tu peux le signaler sans qu’il soit considéré comme vérifié.</span><div class="actions"><button id="reportBtn" class="primary">Signaler un éclair</button></div></div>':""}
+  `;
   document.getElementById("detailDialog").showModal();
-  document.getElementById("favBtn").onclick=()=>toggleFavorite(x);
-  document.getElementById("rateBtn").onclick=()=>openVote(x);
+  if(canRate){
+    document.getElementById("favBtn").onclick=()=>toggleFavorite(x);
+    document.getElementById("rateBtn").onclick=()=>openVote(x);
+  }else{
+    document.getElementById("reportBtn").onclick=()=>openReport(x);
+  }
 }
+
+function openReport(x){
+  if(!currentUser){document.getElementById("detailDialog").close();return openAuth();}
+  currentEclair=x;
+  document.getElementById("reportTitle").textContent="Signaler · "+x.name;
+  document.getElementById("reportPrice").value="";
+  document.getElementById("reportSource").value="";
+  document.getElementById("reportComment").value="";
+  document.getElementById("reportMessage").textContent="";
+  document.getElementById("detailDialog").close();
+  document.getElementById("reportDialog").showModal();
+}
+
+async function saveReport(e){
+  e.preventDefault();
+  const msg=document.getElementById("reportMessage");
+  if(!sb){msg.textContent="Service de signalement momentanément indisponible.";return;}
+  if(!currentUser||!currentEclair?.catalog_id)return;
+  const raw=document.getElementById("reportPrice").value;
+  const payload={
+    user_id:currentUser.id,
+    catalog_id:currentEclair.catalog_id,
+    establishment_name:currentEclair.name,
+    address:currentEclair.address||null,
+    latitude:currentEclair.latitude||null,
+    longitude:currentEclair.longitude||null,
+    reported_price:raw===""?null:Number(raw),
+    source_url:document.getElementById("reportSource").value.trim()||null,
+    comment:document.getElementById("reportComment").value.trim()||null
+  };
+  const {error}=await sb.from("eclair_reports").upsert(payload,{onConflict:"user_id,catalog_id"});
+  if(error){msg.textContent="Erreur : "+error.message;return;}
+  msg.textContent="Merci. Le signalement a été enregistré comme information à vérifier.";
+  setTimeout(()=>document.getElementById("reportDialog").close(),900);
+}
+
 function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
 function updateAuthButton(){document.getElementById("authBtn").textContent=currentUser?currentUser.email.split("@")[0]:"Connexion"}
 
@@ -174,6 +220,7 @@ document.getElementById("rankingArr").addEventListener("input",renderRanking);
 document.getElementById("closeDialog").onclick=()=>document.getElementById("detailDialog").close();
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
 document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();
+document.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
 document.getElementById("authBtn").onclick=async()=>{if(currentUser){if(confirm("Se déconnecter ?"))await sb.auth.signOut()}else openAuth()};
 document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>{
   const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
@@ -184,6 +231,7 @@ document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurre
 document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;const {error}=await sb.auth.signInWithPassword({email,password});document.getElementById("authMessage").textContent=error?error.message:"Connecté.";if(!error)setTimeout(()=>document.getElementById("authDialog").close(),400)};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
 document.getElementById("voteForm").onsubmit=saveVote;
+document.getElementById("reportForm").onsubmit=saveReport;
 
 setupArrondissements();
 if(window.L){
