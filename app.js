@@ -51,6 +51,29 @@ function initMap(){
   map=L.map("map",{zoomControl:false,maxBounds:parisBounds,maxBoundsViscosity:1.0,minZoom:12}).setView([48.8566,2.3522],12);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
+  loadParisBoundary();
+}
+async function loadParisBoundary(){
+  try{
+    const res=await fetch("./data/paris_boundary.geojson",{cache:"no-store"});
+    if(!res.ok) return;
+    const geo=await res.json();
+    const layer=L.geoJSON(geo,{style:{color:"#2b1b17",weight:2,fill:false,interactive:false}}).addTo(map);
+    const ring=geo?.features?.[0]?.geometry?.coordinates?.[0];
+    if(Array.isArray(ring)&&ring.length){
+      const hole=ring.map(([lng,lat])=>[lat,lng]);
+      const outer=[[48.74,2.08],[48.74,2.62],[48.98,2.62],[48.98,2.08]];
+      L.polygon([outer,hole],{
+        stroke:false,
+        fillColor:"#fbf7f2",
+        fillOpacity:0.78,
+        fillRule:"evenodd",
+        interactive:false
+      }).addTo(map).bringToBack();
+      map.setMaxBounds(layer.getBounds().pad(0.03));
+      map.fitBounds(layer.getBounds(),{padding:[8,8]});
+    }
+  }catch(err){console.warn("Contour de Paris indisponible",err);}
 }
 function renderMap(){
   markers.forEach(m=>m.remove());markers=[];
