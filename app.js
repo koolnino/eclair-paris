@@ -63,7 +63,7 @@ function initMap(){
     minZoom:12
   });
   map.fitBounds(parisBounds);
-  markerLayer=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true,maxClusterRadius:45});
+  markerLayer=L.layerGroup();
   map.addLayer(markerLayer);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
