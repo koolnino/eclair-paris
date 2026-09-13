@@ -72,10 +72,12 @@
     <h2>Connexion</h2>
     <p class="meta">Connecte-toi pour voter et créer ta liste d'éclairs à tester.</p>
     <form id="authForm" class="form-grid">
+      <label>Pseudo <input id="authDisplayName" type="text" maxlength="40" autocomplete="nickname" placeholder="Choisis un pseudo"></label>
       <label>Email<input id="authEmail" type="email" required autocomplete="email"></label>
       <label>Mot de passe<input id="authPassword" type="password" required minlength="6" autocomplete="current-password"></label>
+      <label id="authPasswordConfirmWrap" hidden>Confirmer le mot de passe<input id="authPasswordConfirm" type="password" minlength="6" autocomplete="new-password"></label>
       <div class="actions">
-        <button type="submit" class="primary">Se connecter</button>
+        <button type="submit" id="signinBtn" class="primary">Se connecter</button>
         <button type="button" id="signupBtn" class="secondary">Créer un compte</button>
       </div>
       <div id="authMessage" class="meta"></div>
