@@ -1,4 +1,4 @@
-const CACHE_NAME="eclair-paris-runtime-v2";
+const CACHE_NAME="eclair-paris-runtime-v3";
 const CORE=["./","./index.html","./manifest.webmanifest","./styles.css","./app.js","./data/paris_shops.json","./data/paris_boundary.geojson","./icons/apple-touch-icon.png","./assets/eclair-paris-splash.jpg"];
 
 self.addEventListener("install",event=>{
