@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let bakeries=[], catalog=[], rankings=[], reportSummary=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[], markerLayer;
+let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -14,28 +14,20 @@ const criteria=[
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 const arrText=v=>v?String(v).replace(/\D/g,""):"";
 const price=v=>v==null?"Prix à confirmer":new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(v);
-const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-const distanceMeters=(a,b)=>{const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(Number(b.latitude)-Number(a.latitude)),dLon=toRad(Number(b.longitude)-Number(a.longitude)),q=Math.sin(dLat/2)**2+Math.cos(toRad(Number(a.latitude)))*Math.cos(toRad(Number(b.latitude)))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(q));};
-const samePlace=(a,b)=>{const na=norm(a.name),nb=norm(b.name);if(!na||!nb)return false;const nameMatch=na===nb||na.includes(nb)||nb.includes(na);return nameMatch&&distanceMeters(a,b)<120;};
 
 function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
 }
 async function loadData(){
-  const [{data:b,error:be},{data:r},{data:rs},catalogData] = await Promise.all([
+  const [{data:b,error:be},{data:r},catalogData] = await Promise.all([
     sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true),
     sb.from("eclair_rankings").select("*"),
-    sb.from("eclair_report_summary").select("*"),
     fetch("./data/paris_shops.json",{cache:"no-store"}).then(res=>res.ok?res.json():null).catch(()=>null)
   ]);
   if(be) throw be;
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
-  const rawCatalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
-  catalog=rawCatalog.filter(c=>!bakeries.some(v=>samePlace(c,v)));
-  const seen=new Set();
-  catalog=catalog.filter(x=>{const key=norm(x.name)+"|"+Math.round(Number(x.latitude)*10000)+"|"+Math.round(Number(x.longitude)*10000);if(seen.has(key))return false;seen.add(key);return true;});
+  catalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
   rankings=r||[];
-  reportSummary=rs||[];
   await loadFavorites();
   renderAll();
 }
@@ -48,40 +40,28 @@ function rankingFor(id){return rankings.find(r=>r.eclair_id===id)||{}}
 function scoreOf(x){const r=rankingFor(x.eclair_id);return Number(r.average_score??r.avg_score??0)}
 function votesOf(x){const r=rankingFor(x.eclair_id);return Number(r.vote_count??r.votes_count??0)}
 function isFavorite(id){return favorites.some(f=>f.eclair_id===id)}
-function reportFor(catalogId){return reportSummary.find(r=>r.catalog_id===catalogId)||{}}
-function reportCount(x){return Number(reportFor(x.catalog_id).report_count||0)}
 function filtered(){
   const q=document.getElementById("searchInput").value.trim().toLowerCase(),a=document.getElementById("arrFilter").value,s=document.getElementById("statusFilter").value;
   return [...catalog,...bakeries].filter(x=>(!q||[x.name,x.address,x.postal_code].some(v=>String(v||"").toLowerCase().includes(q)))&&(!a||arrText(x.arrondissement)===a)&&(!s||x.availability_status===s));
 }
 function initMap(){
   const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
-  map=L.map("map",{
-    zoomControl:false,
-    maxBounds:parisBounds,
-    maxBoundsViscosity:1.0,
-    minZoom:12
-  });
-  map.fitBounds(parisBounds);
-  markerLayer=L.layerGroup();
-  map.addLayer(markerLayer);
+  map=L.map("map",{zoomControl:false,maxBounds:parisBounds,maxBoundsViscosity:1.0,minZoom:12}).setView([48.8566,2.3522],12);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO",subdomains:"abcd",maxZoom:20}).addTo(map);
 }
 function renderMap(){
-  markerLayer.clearLayers();markers=[];
+  markers.forEach(m=>m.remove());markers=[];
   const list=filtered();
   for(const x of list){
     if(!Number.isFinite(Number(x.latitude))||!Number.isFinite(Number(x.longitude)))continue;
-    const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id), reported=reportCount(x)>0;
-    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":reported?"#d9902f":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
-    const m=L.marker([x.latitude,x.longitude],{icon});
-    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":reported?"Éclair signalé par la communauté":"Établissement recensé"}`);
-    m.on("click",()=>showDetail(x));markerLayer.addLayer(m);markers.push(m);
+    const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id);
+    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
+    const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
+    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"À vérifier"}`);
+    if(x.eclair_id) m.on("click",()=>showDetail(x));markers.push(m);
   }
-  const verifiedCount=list.filter(x=>x.availability_status==="verified").length;
-  document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""} · ${verifiedCount} éclair${verifiedCount>1?"s":""} vérifié${verifiedCount>1?"s":""}`;
-  if(!document.getElementById("mapLegend")){const el=document.createElement("div");el.id="mapLegend";el.className="legend";el.innerHTML='<div><span class="dot verified"></span>Éclair vérifié</div><div><span class="dot reported"></span>Éclair signalé</div><div><span class="dot catalog"></span>Établissement recensé</div>';document.getElementById("mapView").appendChild(el);}
+  document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
 }
 function card(x,withScore=false){
   const sc=scoreOf(x),vc=votesOf(x),verified=x.availability_status==="verified";
@@ -111,54 +91,21 @@ async function toggleFavorite(x){
   await loadFavorites();renderAll();showDetail(x);
 }
 function showDetail(x){
-  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id,reports=reportCount(x),summary=reportFor(x.catalog_id);
+  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id);
   document.getElementById("detailContent").innerHTML=`
-    <div class="eyebrow">${verified?"ÉCLAIR AU CHOCOLAT VÉRIFIÉ":"ÉTABLISSEMENT RECENSÉ"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
-    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:`<div class="source-note">Cette adresse est issue du catalogue OpenStreetMap. La présence d’un éclair au chocolat n’est pas encore vérifiée.${reports?` <strong>${reports} signalement${reports>1?"s":""}</strong> reçu${reports>1?"s":""}.${summary.avg_reported_price?` Prix moyen signalé : ${price(summary.avg_reported_price)}.`:""}`:""}</div>`}
-    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
+    <div class="eyebrow">${verified?"ÉCLAIR VÉRIFIÉ":"INFORMATION À VÉRIFIER"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
+    <p><strong>${price(x.price_eur)}</strong></p>
+    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:"<p>Aucun vote pour le moment.</p>"}
     ${x.description?`<p>${esc(x.description)}</p>`:""}
     <div class="actions">
-      ${canRate?`<button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button><button id="rateBtn" class="primary">Noter cet éclair</button>`:""}
+      <button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button>
+      <button id="rateBtn" class="primary">Noter cet éclair</button>
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">Itinéraire</a>
       ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
-    </div>
-    ${!canRate?`<div class="catalog-cta"><strong>Tu as vu un éclair au chocolat ici ?</strong><span class="meta">Aide à enrichir Éclair Paris sans transformer le signalement en donnée vérifiée.</span><div class="actions"><button id="reportBtn" class="primary">Signaler un éclair</button></div></div>`:""}`;
+    </div>`;
   document.getElementById("detailDialog").showModal();
-  if(canRate){document.getElementById("favBtn").onclick=()=>toggleFavorite(x);document.getElementById("rateBtn").onclick=()=>openVote(x);}
-  else document.getElementById("reportBtn").onclick=()=>openReport(x);
-}
-function openReport(x){
-  if(!currentUser){document.getElementById("detailDialog").close();return openAuth();}
-  currentEclair=x;
-  document.getElementById("reportTitle").textContent="Signaler · "+x.name;
-  document.getElementById("reportPrice").value="";
-  document.getElementById("reportSource").value="";
-  document.getElementById("reportComment").value="";
-  document.getElementById("reportMessage").textContent="";
-  document.getElementById("detailDialog").close();
-  document.getElementById("reportDialog").showModal();
-}
-async function saveReport(e){
-  e.preventDefault();
-  if(!currentUser||!currentEclair?.catalog_id)return;
-  const raw=document.getElementById("reportPrice").value;
-  const payload={
-    user_id:currentUser.id,
-    catalog_id:currentEclair.catalog_id,
-    establishment_name:currentEclair.name,
-    address:currentEclair.address||null,
-    latitude:currentEclair.latitude||null,
-    longitude:currentEclair.longitude||null,
-    reported_price:raw===""?null:Number(raw),
-    source_url:document.getElementById("reportSource").value.trim()||null,
-    comment:document.getElementById("reportComment").value.trim()||null
-  };
-  const {error}=await sb.from("eclair_reports").upsert(payload,{onConflict:"user_id,catalog_id"});
-  const msg=document.getElementById("reportMessage");
-  if(error){msg.textContent="Erreur : "+error.message;return;}
-  msg.textContent="Merci. Signalement enregistré comme information à vérifier.";
-  const {data:rs}=await sb.from("eclair_report_summary").select("*");reportSummary=rs||[];renderMap();
-  setTimeout(()=>document.getElementById("reportDialog").close(),800);
+  document.getElementById("favBtn").onclick=()=>toggleFavorite(x);
+  document.getElementById("rateBtn").onclick=()=>openVote(x);
 }
 function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
 function updateAuthButton(){document.getElementById("authBtn").textContent=currentUser?currentUser.email.split("@")[0]:"Connexion"}
@@ -201,17 +148,15 @@ document.getElementById("rankingArr").addEventListener("input",renderRanking);
 document.getElementById("closeDialog").onclick=()=>document.getElementById("detailDialog").close();
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
 document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();
-document.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
 document.getElementById("authBtn").onclick=async()=>{if(currentUser){if(confirm("Se déconnecter ?"))await sb.auth.signOut()}else openAuth()};
 document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>{
-  const latlng=L.latLng(p.coords.latitude,p.coords.longitude);
   const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
-  if(parisBounds.contains(latlng)) map.setView(latlng,15);
+  const pos=L.latLng(p.coords.latitude,p.coords.longitude);
+  if(parisBounds.contains(pos)) map.setView(pos,15);
   else alert("Votre position est en dehors de Paris intramuros.");
 });
 document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;const {error}=await sb.auth.signInWithPassword({email,password});document.getElementById("authMessage").textContent=error?error.message:"Connecté.";if(!error)setTimeout(()=>document.getElementById("authDialog").close(),400)};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
 document.getElementById("voteForm").onsubmit=saveVote;
-document.getElementById("reportForm").onsubmit=saveReport;
 
 setupArrondissements();initMap();initAuth();loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger les données.</div>'});
