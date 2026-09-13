@@ -55,8 +55,16 @@
     <section id="rankingView" class="view">
       <div class="section-head">
         <div><div class="eyebrow">COMMUNAUTÉ</div><h2>Classement</h2></div>
-        <select id="rankingArr"><option value="">Tout Paris</option></select>
+        <div class="ranking-controls">
+          <select id="rankingMode" aria-label="Type de classement">
+            <option value="score">Meilleure note</option>
+            <option value="value">Rapport qualité-prix</option>
+            <option value="popular">Plus populaire</option>
+          </select>
+          <select id="rankingArr"><option value="">Tout Paris</option></select>
+        </div>
       </div>
+      <div id="rankingHero" class="ranking-hero"></div>
       <div id="rankingList" class="cards"></div>
     </section>
 
@@ -121,6 +129,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="./app.js?v=20260913-2328"></script>
+  <script src="./app.js?v=20260913-2334"></script>
 </body>
 </html>
