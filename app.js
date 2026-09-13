@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[], markerLayer;
+let bakeries=[], catalog=[], rankings=[], reportSummary=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[], markerLayer;
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -22,9 +22,10 @@ function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
 }
 async function loadData(){
-  const [{data:b,error:be},{data:r},catalogData] = await Promise.all([
+  const [{data:b,error:be},{data:r},{data:rs},catalogData] = await Promise.all([
     sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true),
     sb.from("eclair_rankings").select("*"),
+    sb.from("eclair_report_summary").select("*"),
     fetch("./data/paris_shops.json",{cache:"no-store"}).then(res=>res.ok?res.json():null).catch(()=>null)
   ]);
   if(be) throw be;
@@ -34,6 +35,7 @@ async function loadData(){
   const seen=new Set();
   catalog=catalog.filter(x=>{const key=norm(x.name)+"|"+Math.round(Number(x.latitude)*10000)+"|"+Math.round(Number(x.longitude)*10000);if(seen.has(key))return false;seen.add(key);return true;});
   rankings=r||[];
+  reportSummary=rs||[];
   await loadFavorites();
   renderAll();
 }
@@ -46,6 +48,8 @@ function rankingFor(id){return rankings.find(r=>r.eclair_id===id)||{}}
 function scoreOf(x){const r=rankingFor(x.eclair_id);return Number(r.average_score??r.avg_score??0)}
 function votesOf(x){const r=rankingFor(x.eclair_id);return Number(r.vote_count??r.votes_count??0)}
 function isFavorite(id){return favorites.some(f=>f.eclair_id===id)}
+function reportFor(catalogId){return reportSummary.find(r=>r.catalog_id===catalogId)||{}}
+function reportCount(x){return Number(reportFor(x.catalog_id).report_count||0)}
 function filtered(){
   const q=document.getElementById("searchInput").value.trim().toLowerCase(),a=document.getElementById("arrFilter").value,s=document.getElementById("statusFilter").value;
   return [...catalog,...bakeries].filter(x=>(!q||[x.name,x.address,x.postal_code].some(v=>String(v||"").toLowerCase().includes(q)))&&(!a||arrText(x.arrondissement)===a)&&(!s||x.availability_status===s));
@@ -62,15 +66,15 @@ function renderMap(){
   const list=filtered();
   for(const x of list){
     if(!Number.isFinite(Number(x.latitude))||!Number.isFinite(Number(x.longitude)))continue;
-    const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id);
-    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
+    const verified=x.availability_status==="verified", fav=isFavorite(x.eclair_id), reported=reportCount(x)>0;
+    const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":reported?"#d9902f":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
     const m=L.marker([x.latitude,x.longitude],{icon});
-    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"Établissement recensé"}`);
+    m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":reported?"Éclair signalé par la communauté":"Établissement recensé"}`);
     m.on("click",()=>showDetail(x));markerLayer.addLayer(m);markers.push(m);
   }
   const verifiedCount=list.filter(x=>x.availability_status==="verified").length;
   document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""} · ${verifiedCount} éclair${verifiedCount>1?"s":""} vérifié${verifiedCount>1?"s":""}`;
-  if(!document.getElementById("mapLegend")){const el=document.createElement("div");el.id="mapLegend";el.className="legend";el.innerHTML='<div><span class="dot verified"></span>Éclair vérifié</div><div><span class="dot catalog"></span>Établissement recensé</div>';document.getElementById("mapView").appendChild(el);}
+  if(!document.getElementById("mapLegend")){const el=document.createElement("div");el.id="mapLegend";el.className="legend";el.innerHTML='<div><span class="dot verified"></span>Éclair vérifié</div><div><span class="dot reported"></span>Éclair signalé</div><div><span class="dot catalog"></span>Établissement recensé</div>';document.getElementById("mapView").appendChild(el);}
 }
 function card(x,withScore=false){
   const sc=scoreOf(x),vc=votesOf(x),verified=x.availability_status==="verified";
@@ -100,10 +104,10 @@ async function toggleFavorite(x){
   await loadFavorites();renderAll();showDetail(x);
 }
 function showDetail(x){
-  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id;
+  currentEclair=x;const verified=x.availability_status==="verified",sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id,reports=reportCount(x),summary=reportFor(x.catalog_id);
   document.getElementById("detailContent").innerHTML=`
     <div class="eyebrow">${verified?"ÉCLAIR AU CHOCOLAT VÉRIFIÉ":"ÉTABLISSEMENT RECENSÉ"}</div><h2>${esc(x.name)}</h2><p>${esc(x.address)}</p>
-    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:'<div class="source-note">Cette adresse est issue du catalogue OpenStreetMap. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
+    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:`<div class="source-note">Cette adresse est issue du catalogue OpenStreetMap. La présence d’un éclair au chocolat n’est pas encore vérifiée.${reports?` <strong>${reports} signalement${reports>1?"s":""}</strong> reçu${reports>1?"s":""}.${summary.avg_reported_price?` Prix moyen signalé : ${price(summary.avg_reported_price)}.`:""}`:""}</div>`}
     ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
     ${x.description?`<p>${esc(x.description)}</p>`:""}
     <div class="actions">
@@ -142,10 +146,11 @@ async function saveReport(e){
     source_url:document.getElementById("reportSource").value.trim()||null,
     comment:document.getElementById("reportComment").value.trim()||null
   };
-  const {error}=await sb.from("eclair_reports").insert(payload);
+  const {error}=await sb.from("eclair_reports").upsert(payload,{onConflict:"user_id,catalog_id"});
   const msg=document.getElementById("reportMessage");
   if(error){msg.textContent="Erreur : "+error.message;return;}
   msg.textContent="Merci. Signalement enregistré comme information à vérifier.";
+  const {data:rs}=await sb.from("eclair_report_summary").select("*");reportSummary=rs||[];renderMap();
   setTimeout(()=>document.getElementById("reportDialog").close(),800);
 }
 function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
