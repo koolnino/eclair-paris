@@ -1,0 +1,64 @@
+[
+  {
+    "name": "Stohrer",
+    "address": "51 rue Montorgueil, 75002 Paris",
+    "postal_code": "75002",
+    "arrondissement": 2,
+    "latitude": 48.8652493,
+    "longitude": 2.3468171,
+    "eclair_name": "Éclair au chocolat",
+    "eclair_price": 5.8,
+    "availability_status": "verified",
+    "source_url": "https://stohrer.fr/produit/eclair-au-chocolat/",
+    "verified_at": "2026-09-13"
+  },
+  {
+    "name": "Lenôtre Courcelles",
+    "address": "15 boulevard de Courcelles, 75008 Paris",
+    "postal_code": "75008",
+    "arrondissement": 8,
+    "latitude": 48.8809962,
+    "longitude": 2.3151318,
+    "eclair_name": "Éclair au chocolat",
+    "eclair_price": 6.5,
+    "availability_status": "verified",
+    "source_url": "https://www.lenotre.com/eclair-chocolat-18332.html",
+    "verified_at": "2026-09-13"
+  },
+  {
+    "name": "Maison Pradier - Gare de Lyon",
+    "address": "Gare de Lyon, Place Louis-Armand, 75012 Paris",
+    "postal_code": "75012",
+    "arrondissement": 12,
+    "latitude": 48.8446832,
+    "longitude": 2.3737743,
+    "eclair_name": "Éclair au chocolat",
+    "eclair_price": null,
+    "availability_status": "verified",
+    "verified_at": "2026-09-13"
+  },
+  {
+    "name": "Maison Pradier - Gare de l'Est",
+    "address": "Place du 11 Novembre 1918, Gare de l'Est, 75010 Paris",
+    "postal_code": "75010",
+    "arrondissement": 10,
+    "latitude": 48.8770979,
+    "longitude": 2.3594905,
+    "eclair_name": "Éclair au chocolat",
+    "eclair_price": null,
+    "availability_status": "verified",
+    "verified_at": "2026-09-13"
+  },
+  {
+    "name": "Maison Pradier - Kléber",
+    "address": "69 avenue Kléber, 75116 Paris",
+    "postal_code": "75116",
+    "arrondissement": 16,
+    "latitude": 48.8659427,
+    "longitude": 2.2896317,
+    "eclair_name": "Éclair au chocolat",
+    "eclair_price": null,
+    "availability_status": "verified",
+    "verified_at": "2026-09-13"
+  }
+]
