@@ -428,7 +428,28 @@ document.getElementById("voteForm").onsubmit=saveVote;
 document.getElementById("reportForm").onsubmit=saveReport;
 document.getElementById("refreshAdminBtn").onclick=refreshAdmin;
 
+
+async function setupAutoUpdates(){
+  if(!("serviceWorker" in navigator))return;
+  try{
+    const reg=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});
+    const check=()=>reg.update().catch(()=>{});
+    window.addEventListener("focus",check);
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});
+    setInterval(check,60000);
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(sessionStorage.getItem("eclair-sw-reloaded"))return;
+      sessionStorage.setItem("eclair-sw-reloaded","1");
+      location.reload();
+    });
+    window.addEventListener("pageshow",e=>{if(e.persisted)location.reload()});
+  }catch(err){
+    console.warn("Mise à jour automatique indisponible",err);
+  }
+}
+
 setupArrondissements();
+setupAutoUpdates();
 if(window.L){
   initMap();
   loadData().catch(err=>{console.error(err);document.getElementById("rankingList").innerHTML='<div class="empty">Impossible de charger certaines données.</div>'});
