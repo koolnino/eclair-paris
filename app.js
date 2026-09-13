@@ -55,7 +55,14 @@ function filtered(){
   return [...catalog,...bakeries].filter(x=>(!q||[x.name,x.address,x.postal_code].some(v=>String(v||"").toLowerCase().includes(q)))&&(!a||arrText(x.arrondissement)===a)&&(!s||x.availability_status===s));
 }
 function initMap(){
-  map=L.map("map",{zoomControl:false}).setView([48.8566,2.3522],12);
+  const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
+  map=L.map("map",{
+    zoomControl:false,
+    maxBounds:parisBounds,
+    maxBoundsViscosity:1.0,
+    minZoom:12
+  });
+  map.fitBounds(parisBounds);
   markerLayer=L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true,maxClusterRadius:45});
   map.addLayer(markerLayer);
   L.control.zoom({position:"bottomright"}).addTo(map);
@@ -195,7 +202,12 @@ document.getElementById("closeDialog").onclick=()=>document.getElementById("deta
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
 document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();\ndocument.getElementById("closeReport").onclick=()=>document.getElementById("reportDialog").close();
 document.getElementById("authBtn").onclick=async()=>{if(currentUser){if(confirm("Se déconnecter ?"))await sb.auth.signOut()}else openAuth()};
-document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],15));
+document.getElementById("locateBtn").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>{
+  const latlng=L.latLng(p.coords.latitude,p.coords.longitude);
+  const parisBounds=L.latLngBounds([48.8156,2.2241],[48.9022,2.4699]);
+  if(parisBounds.contains(latlng)) map.setView(latlng,15);
+  else alert("Votre position est en dehors de Paris intramuros.");
+});
 document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;const {error}=await sb.auth.signInWithPassword({email,password});document.getElementById("authMessage").textContent=error?error.message:"Connecté.";if(!error)setTimeout(()=>document.getElementById("authDialog").close(),400)};
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
 document.getElementById("voteForm").onsubmit=saveVote;\ndocument.getElementById("reportForm").onsubmit=saveReport;
