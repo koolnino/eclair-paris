@@ -218,21 +218,32 @@ function showDetail(x){
   const unavailable=x.availability_status==="unavailable";
   const sc=scoreOf(x),vc=votesOf(x),fav=isFavorite(x.eclair_id),canRate=!!x.eclair_id;
   const statusEyebrow=verified?"ÉCLAIR VÉRIFIÉ":reported?"SIGNALÉ PAR LA COMMUNAUTÉ":unavailable?"INDISPONIBLE":"ÉTABLISSEMENT RECENSÉ";
+  const statusClass=verified?"verified":reported?"reported":unavailable?"unavailable":"catalog";
+  const hero=x.photo_url?`<div class="detail-hero"><img src="${esc(x.photo_url)}" alt="Éclair au chocolat chez ${esc(x.name)}" loading="lazy" onerror="this.parentElement.remove()"></div>`:"";
+  const priceBlock=verified&&x.price_eur!=null?`<div class="detail-stat"><span>Prix</span><strong>${price(x.price_eur)}</strong></div>`:reported&&x.avg_reported_price!=null?`<div class="detail-stat"><span>Prix signalé</span><strong>${price(x.avg_reported_price)}</strong></div>`:"";
+  const scoreBlock=vc?`<div class="detail-stat"><span>Note</span><strong>${sc.toFixed(1)}<small>/100</small></strong><em>${vc} vote${vc>1?"s":""}</em></div>`:`<div class="detail-stat"><span>Note</span><strong>—</strong><em>Pas encore noté</em></div>`;
   document.getElementById("detailContent").innerHTML=`
-    <div class="eyebrow">${statusEyebrow}</div>
-    <h2>${esc(x.name)}</h2>
-    <p>${esc(x.address)}</p>
-    ${verified?`<p><strong>${price(x.price_eur)}</strong></p>`:reported?`<div class="source-note"><strong>${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}</strong> · information encore à vérifier${x.avg_reported_price!=null?` · prix moyen signalé : ${price(x.avg_reported_price)}`:""}.</div>`:unavailable?'<div class="source-note">Cet éclair est signalé comme indisponible.</div>':'<div class="source-note">Cette adresse est recensée. La présence d’un éclair au chocolat n’est pas encore vérifiée.</div>'}
-    ${vc?`<p><span class="score">${sc.toFixed(1)}/100</span> · ${vc} vote${vc>1?"s":""}</p>`:canRate?"<p>Aucun vote pour le moment.</p>":""}
-    ${x.description?`<p>${esc(x.description)}</p>`:""}
-    <div class="actions">
-      ${canRate?`<button id="favBtn" class="secondary">${fav?"★ Retirer de ma liste":"☆ À tester"}</button><button id="rateBtn" class="primary">Noter cet éclair</button>`:""}
-      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">Itinéraire</a>
-      ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}
-      ${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
-    </div>
-    ${!canRate?'<div class="catalog-cta"><strong>Tu as vu un éclair au chocolat ici ?</strong><span class="meta">Tu peux le signaler sans qu’il soit considéré comme vérifié.</span><div class="actions"><button id="reportBtn" class="primary">Signaler un éclair</button></div></div>':""}
-  `;
+    <article class="detail-sheet">
+      ${hero}
+      <div class="detail-body">
+        <div class="detail-status ${statusClass}">${statusEyebrow}</div>
+        <h2>${esc(x.name)}</h2>
+        <div class="detail-address">${esc(x.address)}</div>
+        <div class="detail-stats">${scoreBlock}${priceBlock}</div>
+        ${reported?`<div class="detail-trust"><strong>${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}</strong><span>Information communautaire encore à vérifier.</span></div>`:""}
+        ${unavailable?`<div class="detail-trust unavailable"><strong>Indisponible</strong><span>Cet éclair est actuellement signalé comme indisponible.</span></div>`:""}
+        ${!verified&&!reported&&!unavailable?`<div class="detail-trust catalog"><strong>Adresse recensée</strong><span>La présence d’un éclair au chocolat n’est pas encore vérifiée.</span></div>`:""}
+        ${x.description?`<p class="detail-description">${esc(x.description)}</p>`:""}
+        <div class="detail-primary-actions">
+          ${canRate?`<button id="rateBtn" class="primary detail-main-action">Noter cet éclair</button><button id="favBtn" class="secondary detail-fav-action">${fav?"★ Dans ma liste":"☆ À tester"}</button>`:`<button id="reportBtn" class="primary detail-main-action">Signaler un éclair</button>`}
+        </div>
+        <div class="detail-links">
+          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.latitude+","+x.longitude)}" target="_blank" rel="noopener">⌖ Itinéraire</a>
+          ${x.website?`<a href="${esc(x.website)}" target="_blank" rel="noopener">Site</a>`:""}
+          ${x.source_url?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener">Source</a>`:""}
+        </div>
+      </div>
+    </article>`;
   document.getElementById("detailDialog").showModal();
   if(canRate){
     document.getElementById("favBtn").onclick=()=>toggleFavorite(x);
