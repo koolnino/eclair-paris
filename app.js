@@ -112,10 +112,33 @@ function card(x,withScore=false){
   return `<button class="card" data-id="${esc(x.eclair_id)}"><div class="row"><div><h3>${esc(x.name)}</h3><div class="meta">${esc(x.address)}</div></div>${withScore&&vc?`<div><div class="score">${sc.toFixed(1)}</div><div class="meta">${vc} vote${vc>1?"s":""}</div></div>`:""}</div><div class="row"><span class="badge ${verified?"":"unknown"}">${verified?"Éclair vérifié":"À vérifier"}</span><span class="price">${price(x.price_eur)}</span></div></button>`;
 }
 function bindCards(root){root.querySelectorAll("[data-id]").forEach(el=>el.onclick=()=>{const x=bakeries.find(b=>b.eclair_id===el.dataset.id);if(x)showDetail(x)})}
+function valueScoreOf(x){
+  const s=scoreOf(x),p=Number(x.price_eur);
+  if(!votesOf(x)||!Number.isFinite(p)||p<=0)return -Infinity;
+  return s/p;
+}
 function renderRanking(){
-  const a=document.getElementById("rankingArr").value;
-  const list=bakeries.filter(x=>(!a||arrText(x.arrondissement)===a)&&votesOf(x)>0).sort((x,y)=>scoreOf(y)-scoreOf(x));
-  const root=document.getElementById("rankingList");root.innerHTML=list.length?list.map(x=>card(x,true)).join(""):'<div class="empty">Aucun vote pour le moment.</div>';bindCards(root);
+  const arr=document.getElementById("rankingArr").value;
+  const mode=document.getElementById("rankingMode").value;
+  const list=bakeries.filter(x=>(!arr||arrText(x.arrondissement)===arr)&&votesOf(x)>0);
+  list.sort((x,y)=>{
+    if(mode==="popular")return votesOf(y)-votesOf(x)||scoreOf(y)-scoreOf(x);
+    if(mode==="value")return valueScoreOf(y)-valueScoreOf(x)||scoreOf(y)-scoreOf(x);
+    return scoreOf(y)-scoreOf(x)||votesOf(y)-votesOf(x);
+  });
+  const hero=document.getElementById("rankingHero");
+  const root=document.getElementById("rankingList");
+  if(!list.length){
+    hero.innerHTML="";
+    root.innerHTML='<div class="empty">Aucun vote pour le moment.</div>';
+    return;
+  }
+  const top=list[0];
+  const label=mode==="popular"?"Le plus populaire":mode==="value"?"Meilleur rapport qualité-prix":"Meilleur éclair";
+  const metric=mode==="popular"?`${votesOf(top)} vote${votesOf(top)>1?"s":""}`:mode==="value"?`${scoreOf(top).toFixed(1)}/100 · ${price(top.price_eur)}`:`${scoreOf(top).toFixed(1)}/100`;
+  hero.innerHTML=`<button class="card ranking-winner" data-id="${esc(top.eclair_id)}"><div class="eyebrow">${label.toUpperCase()}${arr?" · "+arr+(arr==="1"?"ER":"E")+" ARR.":" · PARIS"}</div><h2>🥇 ${esc(top.name)}</h2><div class="meta">${esc(top.address)}</div><div class="score">${metric}</div></button>`;
+  root.innerHTML=list.slice(1).map((x,idx)=>`<div class="rank-row"><div class="rank-number">${idx+2}</div>${card(x,true)}</div>`).join("");
+  bindCards(hero);bindCards(root);
 }
 function renderFavorites(){
   const root=document.getElementById("favoriteList");
@@ -239,6 +262,7 @@ async function initAuth(){
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));document.getElementById(t.dataset.view+"View").classList.add("active");if(t.dataset.view==="map")setTimeout(()=>map.invalidateSize(),50)});
 ["searchInput","arrFilter","statusFilter"].forEach(id=>document.getElementById(id).addEventListener("input",renderMap));
 document.getElementById("rankingArr").addEventListener("input",renderRanking);
+document.getElementById("rankingMode").addEventListener("input",renderRanking);
 document.getElementById("closeDialog").onclick=()=>document.getElementById("detailDialog").close();
 document.getElementById("closeAuth").onclick=()=>document.getElementById("authDialog").close();
 document.getElementById("closeVote").onclick=()=>document.getElementById("voteDialog").close();
