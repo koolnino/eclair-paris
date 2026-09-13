@@ -84,7 +84,7 @@ function renderMap(){
     const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
     const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
     m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"À vérifier"}`);
-    if(x.eclair_id) m.on("click",()=>showDetail(x));markers.push(m);
+    m.on("click",()=>showDetail(x));markers.push(m);
   }
   document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
 }
