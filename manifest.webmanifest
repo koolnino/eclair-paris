@@ -2,8 +2,17 @@
   "name": "Éclair Paris",
   "short_name": "Éclair Paris",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#fbf7f2",
-  "theme_color": "#2b1b17",
-  "lang": "fr"
+  "background_color": "#f8f2e9",
+  "theme_color": "#3a1c10",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "./icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
