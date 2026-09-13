@@ -178,7 +178,7 @@ async function saveReport(e){
   setTimeout(()=>document.getElementById("reportDialog").close(),900);
 }
 
-function openAuth(){document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
+function openAuth(){setAuthMode("signin");document.getElementById("authMessage").textContent="";document.getElementById("authDialog").showModal()}
 function updateAuthButton(){document.getElementById("authBtn").textContent=currentUser?currentUser.email.split("@")[0]:"Connexion"}
 
 async function openVote(x){
