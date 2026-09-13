@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-let bakeries=[], catalog=[], rankings=[], reportSummary=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
+let bakeries=[], catalog=[], rankings=[], reportSummary=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[], isAdmin=false, adminReports=[];
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -19,7 +19,7 @@ function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
 }
 async function loadData(){
-  const eclairPromise=sb?sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true):Promise.resolve({data:[],error:null});
+  const eclairPromise=sb?sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,catalog_id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true):Promise.resolve({data:[],error:null});
   const rankingPromise=sb?sb.from("eclair_rankings").select("*"):Promise.resolve({data:[]});
   const reportPromise=sb?sb.from("eclair_report_summary").select("*"):Promise.resolve({data:[]});
   const [{data:b,error:be},{data:r},{data:rs},catalogData] = await Promise.all([
@@ -32,7 +32,8 @@ async function loadData(){
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
   reportSummary=rs||[];
   const reportByCatalog=new Map(reportSummary.map(x=>[x.catalog_id,x]));
-  catalog=(catalogData?.establishments||[]).map(x=>{
+  const verifiedCatalogIds=new Set(bakeries.map(x=>x.catalog_id).filter(Boolean));
+  catalog=(catalogData?.establishments||[]).filter(x=>!verifiedCatalogIds.has(x.catalog_id)).map(x=>{
     const report=reportByCatalog.get(x.catalog_id);
     return {
       ...x,
@@ -200,7 +201,7 @@ function renderFavorites(){
   const ids=new Set(favorites.map(f=>f.eclair_id)),list=bakeries.filter(x=>ids.has(x.eclair_id));
   root.innerHTML=list.length?list.map(x=>card(x,false)).join(""):'<div class="empty">Ta liste est vide. Ajoute un éclair depuis sa fiche.</div>';bindCards(root);
 }
-function renderAll(){renderMap();renderRanking();renderFavorites();updateAuthButton()}
+function renderAll(){renderMap();renderRanking();renderFavorites();updateAuthButton();renderAdmin()}
 
 async function toggleFavorite(x){
   if(!currentUser)return openAuth();
@@ -318,10 +319,92 @@ async function saveVote(e){
   msg.textContent="Vote enregistré.";setTimeout(()=>document.getElementById("voteDialog").close(),500);await loadData();
 }
 
+async function refreshAdmin(){
+  if(!sb||!currentUser||!isAdmin){adminReports=[];renderAdmin();return;}
+  const {data,error}=await sb.from("eclair_reports")
+    .select("id,catalog_id,establishment_name,address,latitude,longitude,reported_price,source_url,comment,status,created_at,updated_at")
+    .eq("status","pending")
+    .order("created_at",{ascending:true});
+  if(error){console.error(error);adminReports=[];}else adminReports=data||[];
+  renderAdmin();
+}
+
+function renderAdmin(){
+  const tab=document.getElementById("adminTab");
+  const root=document.getElementById("adminReportList");
+  const stats=document.getElementById("adminStats");
+  if(!tab||!root||!stats)return;
+  tab.hidden=!isAdmin;
+  document.querySelector(".tabs")?.classList.toggle("has-admin",isAdmin);
+  if(!isAdmin){root.innerHTML="";stats.innerHTML="";return;}
+  stats.innerHTML=`<div class="admin-stat"><strong>${adminReports.length}</strong><span>signalement${adminReports.length>1?"s":""} en attente</span></div>`;
+  if(!adminReports.length){root.innerHTML='<div class="empty">Aucun signalement à traiter.</div>';return;}
+  root.innerHTML=adminReports.map(r=>`
+    <article class="card admin-report" data-report-id="${esc(r.id)}">
+      <div class="admin-report-head">
+        <div><div class="eyebrow">À VÉRIFIER</div><h3>${esc(r.establishment_name)}</h3><div class="meta">${esc(r.address||"Adresse non renseignée")}</div></div>
+        <div class="admin-date">${new Date(r.created_at).toLocaleDateString("fr-FR")}</div>
+      </div>
+      <div class="admin-fields">
+        <label>Prix (€)<input class="admin-price" type="number" min="0" step="0.10" value="${r.reported_price??""}"></label>
+        <label>Source<input class="admin-source" type="url" value="${esc(r.source_url||"")}" placeholder="https://…"></label>
+      </div>
+      ${r.comment?`<div class="admin-comment">${esc(r.comment)}</div>`:""}
+      <div class="admin-actions">
+        <button class="secondary admin-map">Voir sur la carte</button>
+        <button class="secondary admin-reject">Refuser</button>
+        <button class="primary admin-approve">Valider l’éclair</button>
+      </div>
+      <div class="meta admin-message"></div>
+    </article>`).join("");
+  root.querySelectorAll(".admin-report").forEach(cardEl=>{
+    const id=cardEl.dataset.reportId;
+    const report=adminReports.find(r=>r.id===id);
+    cardEl.querySelector(".admin-map").onclick=()=>{
+      document.querySelector('[data-view="map"]').click();
+      if(report?.latitude!=null&&report?.longitude!=null)map.setView([report.latitude,report.longitude],16);
+    };
+    cardEl.querySelector(".admin-reject").onclick=()=>moderateReport(cardEl,id,"rejected");
+    cardEl.querySelector(".admin-approve").onclick=()=>approveReport(cardEl,id);
+  });
+}
+
+async function moderateReport(cardEl,id,status){
+  const msg=cardEl.querySelector(".admin-message");
+  msg.textContent="Enregistrement…";
+  const {error}=await sb.from("eclair_reports").update({status,updated_at:new Date().toISOString()}).eq("id",id);
+  if(error){msg.textContent="Erreur : "+error.message;return;}
+  await refreshAdmin();
+  await loadData();
+}
+
+async function approveReport(cardEl,id){
+  const msg=cardEl.querySelector(".admin-message");
+  const raw=cardEl.querySelector(".admin-price").value;
+  const source=cardEl.querySelector(".admin-source").value.trim();
+  msg.textContent="Validation…";
+  const {error:updateError}=await sb.from("eclair_reports").update({
+    reported_price:raw===""?null:Number(raw),
+    source_url:source||null,
+    updated_at:new Date().toISOString()
+  }).eq("id",id);
+  if(updateError){msg.textContent="Erreur : "+updateError.message;return;}
+  const {error}=await sb.rpc("approve_eclair_report",{p_report_id:id});
+  if(error){msg.textContent="Erreur : "+error.message;return;}
+  await refreshAdmin();
+  await loadData();
+}
+
+async function checkAdmin(){
+  if(!sb||!currentUser){isAdmin=false;adminReports=[];renderAdmin();return;}
+  const {data,error}=await sb.from("admins").select("user_id").eq("user_id",currentUser.id).maybeSingle();
+  isAdmin=!error&&!!data;
+  if(isAdmin)await refreshAdmin();else{adminReports=[];renderAdmin();}
+}
 async function initAuth(){
   if(!sb){currentUser=null;updateAuthButton();renderFavorites();return;}
-  const {data:{session}}=await sb.auth.getSession();currentUser=session?.user||null;updateAuthButton();await loadFavorites();renderFavorites();
-  sb.auth.onAuthStateChange(async(_,session)=>{currentUser=session?.user||null;await loadFavorites();renderAll()});
+  const {data:{session}}=await sb.auth.getSession();currentUser=session?.user||null;updateAuthButton();await loadFavorites();await checkAdmin();renderFavorites();
+  sb.auth.onAuthStateChange(async(_,session)=>{currentUser=session?.user||null;await loadFavorites();await checkAdmin();renderAll()});
 }
 
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));document.getElementById(t.dataset.view+"View").classList.add("active");if(t.dataset.view==="map")setTimeout(()=>map.invalidateSize(),50)});
@@ -343,6 +426,7 @@ document.getElementById("authForm").onsubmit=async e=>{e.preventDefault();const 
 document.getElementById("signupBtn").onclick=async()=>{const email=document.getElementById("authEmail").value,password=document.getElementById("authPassword").value;if(!email||password.length<6){document.getElementById("authMessage").textContent="Saisis un email et un mot de passe d'au moins 6 caractères.";return}const {error}=await sb.auth.signUp({email,password});document.getElementById("authMessage").textContent=error?error.message:"Compte créé. Vérifie ton email si demandé."};
 document.getElementById("voteForm").onsubmit=saveVote;
 document.getElementById("reportForm").onsubmit=saveReport;
+document.getElementById("refreshAdminBtn").onclick=refreshAdmin;
 
 setupArrondissements();
 if(window.L){
