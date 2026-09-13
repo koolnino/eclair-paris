@@ -99,7 +99,7 @@ function addSingleMarker(x){
   const reported=x.availability_status==="reported";
   const unavailable=x.availability_status==="unavailable";
   const fav=isFavorite(x.eclair_id);
-  const markerColor=verified?"#4f8d47":reported?"#d9902f":unavailable?"#b9aaa2":"#9b8f88";
+  const markerColor=verified?"#4f8d47":reported?"#d9902f":unavailable?"#b9aaa2":"#7A665C";
   const size=verified||reported?20:15;
   const border=verified||reported?3:2;
   const statusLabel=verified?"✓ Éclair vérifié":reported?`Signalé par la communauté · ${x.report_count||1} signalement${Number(x.report_count||1)>1?"s":""}`:unavailable?"Indisponible":"Adresse recensée";
