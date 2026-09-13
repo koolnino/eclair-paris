@@ -1,5 +1,5 @@
-const CACHE_NAME="eclair-paris-runtime-v3";
-const CORE=["./","./index.html","./manifest.webmanifest","./styles.css","./app.js","./data/paris_shops.json","./data/paris_boundary.geojson","./icons/apple-touch-icon.png","./assets/eclair-paris-splash.jpg"];
+const CACHE_NAME="eclair-paris-runtime-v4";
+const CORE=["./","./index.html","./manifest.webmanifest","./styles.css","./app.js","./data/paris_shops.json","./data/paris_boundary.geojson","./icons/apple-touch-icon.png","./assets/eclair-paris-splash.jpg?v=3"];
 
 self.addEventListener("install",event=>{
   event.waitUntil((async()=>{
