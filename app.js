@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://okqshfosuzirajqbezar.supabase.co";
 const SUPABASE_KEY = "sb_publishable_yyxTSUP7k7KVz3gBvlSeWQ_FguXuKYh";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let bakeries=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
+let bakeries=[], catalog=[], rankings=[], favorites=[], currentUser=null, currentEclair=null, map, markers=[];
 const criteria=[
   ["chocolate_taste","Goût du chocolat",30],
   ["filling","Crème / garniture",20],
@@ -19,12 +19,14 @@ function setupArrondissements(){
   for(const id of ["arrFilter","rankingArr"]){const s=document.getElementById(id);for(let i=1;i<=20;i++){const o=document.createElement("option");o.value=String(i);o.textContent=i===1?"1er":i+"e";s.appendChild(o)}}
 }
 async function loadData(){
-  const [{data:b,error:be},{data:r}] = await Promise.all([
+  const [{data:b,error:be},{data:r},catalogData] = await Promise.all([
     sb.from("eclairs").select("id,name,price_eur,description,photo_url,availability_status,source_url,verified_at,bakeries(id,name,address,postal_code,arrondissement,latitude,longitude,phone,website)").eq("active",true),
-    sb.from("eclair_rankings").select("*")
+    sb.from("eclair_rankings").select("*"),
+    fetch("./data/paris_shops.json",{cache:"no-store"}).then(res=>res.ok?res.json():null).catch(()=>null)
   ]);
   if(be) throw be;
   bakeries=(b||[]).map(x=>({...x,...x.bakeries,bakery_id:x.bakeries?.id,eclair_id:x.id}));
+  catalog=(catalogData?.establishments||[]).map(x=>({...x,eclair_id:null,price_eur:null,description:null,verified_at:null}));
   rankings=r||[];
   await loadFavorites();
   renderAll();
@@ -40,7 +42,7 @@ function votesOf(x){const r=rankingFor(x.eclair_id);return Number(r.vote_count??
 function isFavorite(id){return favorites.some(f=>f.eclair_id===id)}
 function filtered(){
   const q=document.getElementById("searchInput").value.trim().toLowerCase(),a=document.getElementById("arrFilter").value,s=document.getElementById("statusFilter").value;
-  return bakeries.filter(x=>(!q||[x.name,x.address,x.postal_code].some(v=>String(v||"").toLowerCase().includes(q)))&&(!a||arrText(x.arrondissement)===a)&&(!s||x.availability_status===s));
+  return [...catalog,...bakeries].filter(x=>(!q||[x.name,x.address,x.postal_code].some(v=>String(v||"").toLowerCase().includes(q)))&&(!a||arrText(x.arrondissement)===a)&&(!s||x.availability_status===s));
 }
 function initMap(){
   map=L.map("map",{zoomControl:false}).setView([48.8566,2.3522],12);
@@ -56,7 +58,7 @@ function renderMap(){
     const icon=L.divIcon({className:"",html:`<div style="width:18px;height:18px;border-radius:50%;background:${verified?"#2b1b17":"#a68d82"};border:3px solid ${fav?"#e5b642":"white"};box-shadow:0 2px 6px #0004"></div>`,iconSize:[18,18]});
     const m=L.marker([x.latitude,x.longitude],{icon}).addTo(map);
     m.bindPopup(`<strong>${esc(x.name)}</strong><br>${esc(x.address)}<br>${verified?"✓ Éclair vérifié":"À vérifier"}`);
-    m.on("click",()=>showDetail(x));markers.push(m);
+    if(x.eclair_id) m.on("click",()=>showDetail(x));markers.push(m);
   }
   document.getElementById("mapCount").textContent=`${list.length} établissement${list.length>1?"s":""}`;
 }
