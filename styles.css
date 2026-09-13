@@ -224,3 +224,23 @@ dialog::backdrop{background:rgba(45,26,18,.54);backdrop-filter:blur(3px)}
   .detail-body h2{font-size:27px}
   .detail-primary-actions{grid-template-columns:1fr}
 }
+.tabs.has-admin{grid-template-columns:repeat(4,1fr)}
+.admin-stats{padding:0 14px 14px}
+.admin-stat{display:inline-flex;align-items:baseline;gap:8px;padding:10px 14px;border-radius:999px;background:#fff3df;border:1px solid #ead5b3;color:#6b4427}
+.admin-stat strong{font-size:20px}
+.admin-stat span{font-size:12px;font-weight:800}
+.admin-report{display:grid;gap:14px}
+.admin-report-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.admin-date{font-size:11px;color:#8b766a;white-space:nowrap}
+.admin-fields{display:grid;grid-template-columns:130px 1fr;gap:10px}
+.admin-fields label{display:grid;gap:6px;font-size:12px;font-weight:800;color:#6f594d}
+.admin-fields input{width:100%;border:1px solid #e3d5c8;border-radius:12px;padding:10px;background:#fffdfa;color:#3a1c10}
+.admin-comment{padding:12px 14px;border-radius:14px;background:#f7f1eb;color:#5f4b40;font-size:13px;line-height:1.45}
+.admin-actions{display:flex;gap:8px;flex-wrap:wrap}
+.admin-actions button{padding:10px 13px}
+.admin-message{min-height:18px}
+@media(max-width:640px){
+  .admin-fields{grid-template-columns:1fr}
+  .admin-actions{display:grid;grid-template-columns:1fr 1fr}
+  .admin-actions .admin-approve{grid-column:1/-1}
+}
